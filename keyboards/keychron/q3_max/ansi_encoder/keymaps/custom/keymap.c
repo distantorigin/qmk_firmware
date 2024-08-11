@@ -17,8 +17,36 @@
 #include QMK_KEYBOARD_H
 #include "keychron_common.h"
 
+// Custom declarations and definitions
+//I really don't know what I'm doing.
+
+// Spotify mode is used to differentiate between volume control for Spotify and system volume control.
+// It requires the use of the accompanying autohotkey script to work and is not available in the macOS layer.
+bool SPOTIFY_MODE = false;
+
 enum custom_keycodes {
-    SOUND_CONTROL= SAFE_RANGE,
+    KC_SPOT_VOLD = KC_F13,
+        KC_SPOT_VOLU = KC_F14,
+};
+
+// Tap Dance definitions and initialization
+int cur_dance(tap_dance_state_t *state);
+void dance_finished(tap_dance_state_t *state, void *user_data);
+void dance_reset(tap_dance_state_t *state, void *user_data);
+
+enum {
+    TD_ENC_BUTTON = 0,
+};
+
+enum {
+    SINGLE_TAP = 1,
+    SINGLE_HOLD,
+    DOUBLE_TAP,
+    TRIPLE_TAP,
+};
+
+tap_dance_action_t tap_dance_actions[] = {
+    [TD_ENC_BUTTON] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, dance_finished, dance_reset),
 };
 
 enum layers {
@@ -31,7 +59,7 @@ enum layers {
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [MAC_BASE] = LAYOUT_tkl_ansi(
-        KC_ESC,   KC_BRID,  KC_BRIU,  KC_MCTRL, KC_LNPAD, RGB_VAD,  RGB_VAI,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,  KC_VOLU,    SOUND_CONTROL,    KC_SNAP,  KC_SIRI,  RGB_MOD,
+        KC_ESC,   KC_BRID,  KC_BRIU,  KC_MCTRL, KC_LNPAD, RGB_VAD,  RGB_VAI,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,  KC_VOLU,    KC_MUTE,    KC_SNAP,  KC_SIRI,  RGB_MOD,
         KC_GRV,   KC_1,     KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,     KC_BSPC,    KC_INS,   KC_HOME,  KC_PGUP,
         KC_TAB,   KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,     KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,    KC_BSLS,    KC_DEL,   KC_END,   KC_PGDN,
         KC_CAPS,  KC_A,     KC_S,     KC_D,     KC_F,     KC_G,     KC_H,     KC_J,     KC_K,     KC_L,     KC_SCLN,  KC_QUOT,              KC_ENT,
@@ -47,7 +75,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______,  _______,  _______,                                _______,                                _______,  _______,  _______,    _______,    _______,  _______,  _______),
 
     [WIN_BASE] = LAYOUT_tkl_ansi(
-        KC_ESC,   KC_F1,    KC_F2,    KC_F3,    KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9,    KC_F10,   KC_F11,   KC_F12,     SOUND_CONTROL,    KC_PSCR,  KC_CTANA, RGB_MOD,
+        KC_ESC,   KC_F1,    KC_F2,    KC_F3,    KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9,    KC_F10,   KC_F11,   KC_F12,     TD(TD_ENC_BUTTON),    KC_PSCR,  KC_CTANA, RGB_MOD,
         KC_GRV,   KC_1,     KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,     KC_BSPC,    KC_INS,   KC_HOME,  KC_PGUP,
         KC_TAB,   KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,     KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,    KC_BSLS,    KC_DEL,   KC_END,   KC_PGDN,
         KC_CAPS,  KC_A,     KC_S,     KC_D,     KC_F,     KC_G,     KC_H,     KC_J,     KC_K,     KC_L,     KC_SCLN,  KC_QUOT,              KC_ENT,
@@ -64,6 +92,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 
 // clang-format on
+
 #if defined(ENCODER_MAP_ENABLE)
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][2] = {
     [MAC_BASE] = {ENCODER_CCW_CW(KC_VOLD, KC_VOLU)},
@@ -73,44 +102,65 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][2] = {
 };
 #endif // ENCODER_MAP_ENABLE
 
+int cur_dance(tap_dance_state_t *state) {
+        if (state->count == 1) {     
+        if (state->interrupted || !state->pressed) return SINGLE_TAP;
+        else return SINGLE_HOLD;
+    } else if (state->count == 2) return DOUBLE_TAP;
+    else if (state->count == 3) return TRIPLE_TAP;
+    else return 8; // Just a catch-all
+}
+
+void dance_finished(tap_dance_state_t *state, void *user_data) {
+
+    int dance_state = cur_dance(state);
+    
+    switch (dance_state) {
+        case SINGLE_TAP:
+            tap_code(KC_MPLY); // Play/Pause
+            break;
+        case SINGLE_HOLD:
+            SPOTIFY_MODE = true;
+            #ifdef SEND_SPOTIFY_MODE_INIT_KEY
+            register_mods(MOD_BIT(KC_LCTL) | MOD_BIT(KC_LSFT));
+            tap_code(KC_F13);
+            unregister_mods(MOD_BIT(KC_LCTL) | MOD_BIT(KC_LSFT)); // Release Ctrl and Shift
+            #endif
+            break;
+        case DOUBLE_TAP:
+            tap_code(KC_MNXT); // Next Track
+            break;
+        case TRIPLE_TAP:
+            tap_code(KC_MPRV); // Previous Track
+            break;
+    }
+}
+
+void dance_reset(tap_dance_state_t *state, void *user_data) {
+        SPOTIFY_MODE = false; // Unset Spotify mode when the rotary encoder is released
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-        static uint16_t key_timer;
-    static uint8_t tap_count = 0;
-    static uint16_t last_tap_timer;
+
     if (!process_record_keychron_common(keycode, record)) {
         return false;
     }
-        switch (keycode) {
-        case SOUND_CONTROL:
-            if (record->event.pressed) {
-                if (timer_elapsed(last_tap_timer) > TAPPING_TERM) {
-                    // Reset tap count if the last tap was too long ago
-                    tap_count = 0;
-                }
-                key_timer = timer_read();
-                tap_count++;
-                last_tap_timer = timer_read();
-            } else {
-                if (tap_count == 1) {
-                    // Single tap (play/pause or mute depending on hold duration)
-                    if (timer_elapsed(key_timer) < TAPPING_TERM) {
-                        tap_code(KC_MEDIA_PLAY_PAUSE); // Play/Pause on single tap
-                    } else {
-                        tap_code(KC_AUDIO_MUTE); // Mute on hold
-                    }
-                } else if (tap_count == 2) {
-                    tap_code(KC_MEDIA_NEXT_TRACK); // Skip to next song on double tap
-                    tap_count = 0; // Reset tap count after action
-                } else if (tap_count == 3) {
-                    tap_code(KC_MEDIA_PREV_TRACK); // Skip to previous song on triple tap
-                    tap_count = 0; // Reset tap count after action
-                }
-                // Reset tap count after a short delay
-                if (timer_elapsed(last_tap_timer) > TAPPING_TERM) {
-                    tap_count = 0;
-                }
+    
+    switch (keycode) {
+        case KC_VOLU:
+            if (SPOTIFY_MODE) {
+                tap_code16(KC_SPOT_VOLU);
+                return false;
             }
-            return false; // We handled this key press, so return false
+            break;
+        case KC_VOLD:
+            if (SPOTIFY_MODE) {
+                tap_code16(KC_SPOT_VOLD);
+                return false;
+            }
+            break;
     }
+    
     return true;
+
 }
