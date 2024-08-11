@@ -20,13 +20,15 @@
 // Custom declarations and definitions
 //I really don't know what I'm doing.
 
-// Spotify mode is used to differentiate between volume control for Spotify and system volume control.
+// Spotify mode is used to differentiate between volume control for Spotify and system volume control when volup and voldown are pressed.
+// It is activated by holding down the rotary encoder for more than <TAPPING_TERM> (set to 300 in this keymap)
 // It requires the use of the accompanying autohotkey script to work and is not available in the macOS layer.
 bool SPOTIFY_MODE = false;
 
 enum custom_keycodes {
     KC_SPOT_VOLD = KC_F13,
         KC_SPOT_VOLU = KC_F14,
+        KC_MIDDLE_KEY = SAFE_RANGE,
 };
 
 // Tap Dance definitions and initialization
@@ -75,7 +77,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         _______,  _______,  _______,                                _______,                                _______,  _______,  _______,    _______,    _______,  _______,  _______),
 
     [WIN_BASE] = LAYOUT_tkl_ansi(
-        KC_ESC,   KC_F1,    KC_F2,    KC_F3,    KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9,    KC_F10,   KC_F11,   KC_F12,     TD(TD_ENC_BUTTON),    KC_PSCR,  KC_CTANA, RGB_MOD,
+        KC_ESC,   KC_F1,    KC_F2,    KC_F3,    KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9,    KC_F10,   KC_F11,   KC_F12,     TD(TD_ENC_BUTTON),    KC_PSCR,  KC_MIDDLE_KEY, RGB_MOD,
         KC_GRV,   KC_1,     KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,     KC_BSPC,    KC_INS,   KC_HOME,  KC_PGUP,
         KC_TAB,   KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,     KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,    KC_BSLS,    KC_DEL,   KC_END,   KC_PGDN,
         KC_CAPS,  KC_A,     KC_S,     KC_D,     KC_F,     KC_G,     KC_H,     KC_J,     KC_K,     KC_L,     KC_SCLN,  KC_QUOT,              KC_ENT,
@@ -159,8 +161,14 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 return false;
             }
             break;
+            case KC_MIDDLE_KEY:
+            if (record->event.pressed) {
+                register_code(KC_CAPS);
+                tap_code(KC_S);
+                unregister_code(KC_CAPS);
+            }
+            return false;
     }
-    
-    return true;
 
+            return true;
 }
