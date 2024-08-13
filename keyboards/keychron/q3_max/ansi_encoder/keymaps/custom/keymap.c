@@ -25,10 +25,19 @@
 // It requires the use of the accompanying autohotkey script to work and is not available in the macOS layer.
 bool SPOTIFY_MODE = false;
 
+// Experimental mouse jiggler mode
+// Periodically move the mouse cursor and press various hopefully non-invasive keystrokes.
+bool MOUSE_JIGGLE_MODE = false;
+bool MOUSE_JIGGLE_DIRECTION = false;
+uint16_t MOUSE_JIGGLE_FREQUENCY = 40500;
+uint16_t MOUSE_JIGGLE_TIMER = 0;
+uint16_t MOUSE_JIGGLE_TIMES = 0;
+
 enum custom_keycodes {
     KC_SPOT_VOLD = KC_F13,
         KC_SPOT_VOLU = KC_F14,
         KC_MDDL = SAFE_RANGE,
+        MJ_TGL,
 };
 
 // Tap Dance definitions and initialization
@@ -85,7 +94,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_LCTL,  KC_LCMD,  KC_LALT,                                KC_SPC,                                 KC_RALT,  KC_RWIN,  MO(WIN_FN), KC_RCTL,    KC_LEFT,  KC_DOWN,  KC_RGHT),
 
     [WIN_FN] = LAYOUT_tkl_ansi(
-        _______,  KC_BRID,  KC_BRIU,  KC_TASK,  KC_FILE,  RGB_VAD,  RGB_VAI,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,  KC_VOLU,    RGB_TOG,    _______,  _______,  RGB_TOG,
+        _______,  KC_BRID,  KC_BRIU,  KC_TASK,  KC_FILE,  RGB_VAD,  RGB_VAI,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,  KC_VOLU,    RGB_TOG,    _______,  MJ_TGL,  RGB_TOG,
         _______,  BT_HST1,  BT_HST2,  BT_HST3,  P2P4G,    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,    _______,    _______,  _______,  _______,
         RGB_TOG,  RGB_MOD,  RGB_VAI,  RGB_HUI,  RGB_SAI,  RGB_SPI,  _______,  _______,  _______,  _______,  _______,  _______,  _______,    _______,    _______,  _______,  _______,
         _______,  RGB_RMOD, RGB_VAD,  RGB_HUD,  RGB_SAD,  RGB_SPD,  _______,  _______,  _______,  _______,  _______,  _______,              _______,
@@ -142,6 +151,32 @@ void dance_reset(tap_dance_state_t *state, void *user_data) {
         SPOTIFY_MODE = false; // Unset Spotify mode when the rotary encoder is released
 }
 
+void matrix_scan_user(void) {
+if (MOUSE_JIGGLE_MODE) {
+    if (timer_elapsed(MOUSE_JIGGLE_TIMER) > MOUSE_JIGGLE_FREQUENCY) {
+        MOUSE_JIGGLE_TIMER= timer_read();
+        MOUSE_JIGGLE_TIMES++;
+        if (MOUSE_JIGGLE_DIRECTION) {
+            tap_code(KC_MS_LEFT);
+        } else {
+            tap_code(KC_MS_RIGHT);
+        }
+                        
+                        MOUSE_JIGGLE_DIRECTION= !MOUSE_JIGGLE_DIRECTION;
+
+                        if (MOUSE_JIGGLE_TIMES%5 == 0) {
+                            register_code(KC_LALT);
+                            tap_code(KC_TAB);
+                            unregister_code(KC_LALT);
+        } else if (MOUSE_JIGGLE_TIMES%20 == 0) {
+                    register_code(KC_LGUI);
+                tap_code(KC_D);
+                unregister_code(KC_LGUI);
+        }
+                            }
+}
+} 
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
     if (!process_record_keychron_common(keycode, record)) {
@@ -168,7 +203,14 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 unregister_code(KC_CAPS);
             }
             return false;
+            case MJ_TGL:
+    if (record->event.pressed) {
+        MOUSE_JIGGLE_MODE = !MOUSE_JIGGLE_MODE;
+        MOUSE_JIGGLE_TIMES = 0;
+        tap_code(MOUSE_JIGGLE_MODE ? KC_A:KC_B);
+        return false;
+        }
     }
 
-            return true;
+          return true;
 }
